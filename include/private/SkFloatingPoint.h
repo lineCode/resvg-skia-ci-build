@@ -13,6 +13,7 @@
 #include "include/private/SkSafe_math.h"
 #include <float.h>
 #include <math.h>
+#include <cmath>
 #include <cstring>
 #include <limits>
 
@@ -30,6 +31,7 @@
 
 constexpr float SK_FloatSqrt2 = 1.41421356f;
 constexpr float SK_FloatPI    = 3.14159265f;
+constexpr double SK_DoublePI  = 3.14159265358979323846264338327950288;
 
 // C++98 cmath std::pow seems to be the earliest portable way to get float pow.
 // However, on Linux including cmath undefines isfinite.
@@ -116,8 +118,8 @@ static inline bool sk_float_isnan(float x) {
  *  Return the closest int for the given float. Returns SK_MaxS32FitsInFloat for NaN.
  */
 static inline int sk_float_saturate2int(float x) {
-    x = SkTMin<float>(x, SK_MaxS32FitsInFloat);
-    x = SkTMax<float>(x, SK_MinS32FitsInFloat);
+    x = x < SK_MaxS32FitsInFloat ? x : SK_MaxS32FitsInFloat;
+    x = x > SK_MinS32FitsInFloat ? x : SK_MinS32FitsInFloat;
     return (int)x;
 }
 
@@ -125,8 +127,8 @@ static inline int sk_float_saturate2int(float x) {
  *  Return the closest int for the given double. Returns SK_MaxS32 for NaN.
  */
 static inline int sk_double_saturate2int(double x) {
-    x = SkTMin<double>(x, SK_MaxS32);
-    x = SkTMax<double>(x, SK_MinS32);
+    x = x < SK_MaxS32 ? x : SK_MaxS32;
+    x = x > SK_MinS32 ? x : SK_MinS32;
     return (int)x;
 }
 
@@ -134,8 +136,8 @@ static inline int sk_double_saturate2int(double x) {
  *  Return the closest int64_t for the given float. Returns SK_MaxS64FitsInFloat for NaN.
  */
 static inline int64_t sk_float_saturate2int64(float x) {
-    x = SkTMin<float>(x, SK_MaxS64FitsInFloat);
-    x = SkTMax<float>(x, SK_MinS64FitsInFloat);
+    x = x < SK_MaxS64FitsInFloat ? x : SK_MaxS64FitsInFloat;
+    x = x > SK_MinS64FitsInFloat ? x : SK_MinS64FitsInFloat;
     return (int64_t)x;
 }
 
@@ -157,9 +159,7 @@ static inline int64_t sk_float_saturate2int64(float x) {
 // Cast double to float, ignoring any warning about too-large finite values being cast to float.
 // Clang thinks this is undefined, but it's actually implementation defined to return either
 // the largest float or infinity (one of the two bracketing representable floats).  Good enough!
-#if defined(__clang__) && (__clang_major__ * 1000 + __clang_minor__) >= 3007
-__attribute__((no_sanitize("float-cast-overflow")))
-#endif
+[[clang::no_sanitize("float-cast-overflow")]]
 static inline float sk_double_to_float(double x) {
     return static_cast<float>(x);
 }
@@ -167,6 +167,8 @@ static inline float sk_double_to_float(double x) {
 #define SK_FloatNaN                 std::numeric_limits<float>::quiet_NaN()
 #define SK_FloatInfinity            (+std::numeric_limits<float>::infinity())
 #define SK_FloatNegativeInfinity    (-std::numeric_limits<float>::infinity())
+
+#define SK_DoubleNaN                std::numeric_limits<double>::quiet_NaN()
 
 // Returns false if any of the floats are outside of [0...1]
 // Returns true if count is 0
@@ -224,16 +226,12 @@ static inline float sk_float_rsqrt(float x) {
 // IEEE defines how float divide behaves for non-finite values and zero-denoms, but C does not
 // so we have a helper that suppresses the possible undefined-behavior warnings.
 
-#ifdef __clang__
-__attribute__((no_sanitize("float-divide-by-zero")))
-#endif
+[[clang::no_sanitize("float-divide-by-zero")]]
 static inline float sk_ieee_float_divide(float numer, float denom) {
     return numer / denom;
 }
 
-#ifdef __clang__
-__attribute__((no_sanitize("float-divide-by-zero")))
-#endif
+[[clang::no_sanitize("float-divide-by-zero")]]
 static inline double sk_ieee_double_divide(double numer, double denom) {
     return numer / denom;
 }
@@ -244,6 +242,14 @@ static inline float sk_ieee_float_divide_TODO_IS_DIVIDE_BY_ZERO_SAFE_HERE(float 
 }
 static inline float sk_ieee_double_divide_TODO_IS_DIVIDE_BY_ZERO_SAFE_HERE(double n, double d) {
     return sk_ieee_double_divide(n,d);
+}
+
+static inline float sk_fmaf(float f, float m, float a) {
+#if defined(FP_FAST_FMA)
+    return std::fmaf(f,m,a);
+#else
+    return f*m+a;
+#endif
 }
 
 #endif

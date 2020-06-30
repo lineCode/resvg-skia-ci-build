@@ -14,7 +14,6 @@
 #include "include/core/SkFontTypes.h"
 #include "include/core/SkRect.h"
 #include "include/core/SkString.h"
-#include "include/private/SkNoncopyable.h"
 #include "include/private/SkOnce.h"
 #include "include/private/SkWeakRefCnt.h"
 
@@ -223,7 +222,6 @@ public:
      *  If this happens, it is possible that some or all of the memory pointed
      *  to by data may have been written to, even though an error has occured.
      *
-     *  @param fontID the font to copy the table from
      *  @param tag  The table tag whose contents are to be copied
      *  @param offset The offset in bytes into the table's contents where the
      *  copy should start from.
@@ -238,6 +236,16 @@ public:
      */
     size_t getTableData(SkFontTableTag tag, size_t offset, size_t length,
                         void* data) const;
+
+    /**
+     *  Return an immutable copy of the requested font table, or nullptr if that table was
+     *  not found. This can sometimes be faster than calling getTableData() twice: once to find
+     *  the length, and then again to copy the data.
+     *
+     *  @param tag  The table tag whose contents are to be copied
+     *  @return an immutable copy of the table's data, or nullptr.
+     */
+    sk_sp<SkData> copyTableData(SkFontTableTag tag) const;
 
     /**
      *  Return the units-per-em value for this typeface, or zero if there is an
@@ -272,11 +280,16 @@ public:
         SkString fString;
         SkString fLanguage;
     };
-    class LocalizedStrings : ::SkNoncopyable {
+    class LocalizedStrings {
     public:
+        LocalizedStrings() = default;
         virtual ~LocalizedStrings() { }
         virtual bool next(LocalizedString* localizedString) = 0;
         void unref() { delete this; }
+
+    private:
+        LocalizedStrings(const LocalizedStrings&) = delete;
+        LocalizedStrings& operator=(const LocalizedStrings&) = delete;
     };
     /**
      *  Returns an iterator which will attempt to enumerate all of the
@@ -307,13 +320,11 @@ public:
     std::unique_ptr<SkFontData> makeFontData() const;
 
     /**
-     *  Return a scalercontext for the given descriptor. If this fails, then
-     *  if allowFailure is true, this returns NULL, else it returns a
+     *  Return a scalercontext for the given descriptor. It may return a
      *  dummy scalercontext that will not crash, but will draw nothing.
      */
     std::unique_ptr<SkScalerContext> createScalerContext(const SkScalerContextEffects&,
-                                                         const SkDescriptor*,
-                                                         bool allowFailure = false) const;
+                                                         const SkDescriptor*) const;
 
     /**
      *  Return a rectangle (scaled to 1-pt) that represents the union of the bounds of all
@@ -348,6 +359,7 @@ protected:
     /** Sets the font style. If used, must be called in the constructor. */
     void setFontStyle(SkFontStyle style) { fStyle = style; }
 
+    // Must return a valid scaler context. It can not return nullptr.
     virtual SkScalerContext* onCreateScalerContext(const SkScalerContextEffects&,
                                                    const SkDescriptor*) const = 0;
     virtual void onFilterRec(SkScalerContextRec*) const = 0;
@@ -396,6 +408,7 @@ protected:
     virtual int onGetTableTags(SkFontTableTag tags[]) const = 0;
     virtual size_t onGetTableData(SkFontTableTag, size_t offset,
                                   size_t length, void* data) const = 0;
+    virtual sk_sp<SkData> onCopyTableData(SkFontTableTag) const;
 
     virtual bool onComputeBounds(SkRect*) const;
 

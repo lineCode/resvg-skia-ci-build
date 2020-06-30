@@ -13,6 +13,9 @@
 #include "include/core/SkPaint.h"
 #include "include/core/SkPoint.h"
 
+/**
+ *  DEPRECATED: No longer supported by Skia.
+ */
 class SK_API SkLayerDrawLooper : public SkDrawLooper {
 public:
     ~SkLayerDrawLooper() override;
@@ -72,7 +75,7 @@ public:
         LayerInfo();
     };
 
-    SkDrawLooper::Context* makeContext(SkCanvas*, SkArenaAlloc*) const override;
+    SkDrawLooper::Context* makeContext(SkArenaAlloc*) const override;
 
     bool asABlurShadow(BlurShadowRec* rec) const override;
 
@@ -98,7 +101,7 @@ private:
         explicit LayerDrawLooperContext(const SkLayerDrawLooper* looper);
 
     protected:
-        bool next(SkCanvas*, SkPaint* paint) override;
+        bool next(Info*, SkPaint* paint) override;
 
     private:
         Rec* fCurrRec;
